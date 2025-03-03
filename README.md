@@ -36,7 +36,8 @@ cp .env.example .env
 docker-compose up --build
 ```
 
-The application will be available at `http://localhost:8000`
+The application will start using the built-in development server with hot reload enabled.
+Access the application at `http://localhost:8000`
 
 ## API Documentation
 
