@@ -40,11 +40,11 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     await engine.dispose()
 
 
-def create_app() -> FastAPI:
-    # Get settings first
+def init_app() -> FastAPI:
+    """Initialize FastAPI application."""
     settings = get_settings_dependency()
     
-    fastapi_app = FastAPI(
+    app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
@@ -53,31 +53,27 @@ def create_app() -> FastAPI:
     )
     
     # Add error handlers
-    add_error_handlers(fastapi_app)
+    add_error_handlers(app)
     
     # Include routers
-    fastapi_app.include_router(
+    app.include_router(
         message.router,
         prefix=settings.API_V1_STR,
         tags=["messages"]
     )
-    fastapi_app.include_router(
+    app.include_router(
         user.router,
         prefix=settings.API_V1_STR,
         tags=["users"]
     )
-    fastapi_app.include_router(
+    app.include_router(
         auth.router,
         prefix=f"{settings.API_V1_STR}/auth",
         tags=["auth"]
     )
+
+    @app.get("/")
+    async def root():
+        return {"message": "Welcome to FastAPI Kafka App"}
     
-    return fastapi_app
-
-
-app = create_app()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Welcome to FastAPI Kafka App"}
+    return app
