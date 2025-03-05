@@ -1,14 +1,14 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
+from typing import AsyncGenerator
+
 from app.api.endpoints import message, user, auth
 from app.db.database import get_engine
 from app.services.kafka_service import KafkaService
-from app.services.message_consumer import MessageConsumer
 from app.core.error_handlers import add_error_handlers
 from app.core.dependencies import get_settings_dependency
 from app.core.logging_config import setup_logging
-from typing import AsyncGenerator
-import asyncio
+from app.services.multiple_consumers import MultipleConsumersService
 
 
 @asynccontextmanager
@@ -24,18 +24,14 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     kafka_service = KafkaService(settings)
     await kafka_service.start_producer()
     
-    # Initialize and start consumer
-    consumer = MessageConsumer()
-    await consumer.start()
-    
-    # Start consuming messages in background task
-    consumer_task = asyncio.create_task(consumer.consume_messages())
+    # Initialize and start multiple consumers
+    multiple_consumers = MultipleConsumersService(num_consumers=settings.KAFKA_TOPIC_PARTITIONS)
+    await multiple_consumers.start()
     
     yield
     
     # Shutdown: Clean up resources
-    await consumer.stop()
-    await consumer_task
+    await multiple_consumers.stop()
     await kafka_service.stop_producer()
     await engine.dispose()
 
@@ -71,9 +67,5 @@ def init_app() -> FastAPI:
         prefix=f"{settings.API_V1_STR}/auth",
         tags=["auth"]
     )
-
-    @app.get("/")
-    async def root():
-        return {"message": "Welcome to FastAPI Kafka App"}
     
     return app

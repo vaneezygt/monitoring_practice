@@ -3,6 +3,9 @@ from app.core.config import Settings
 import json
 from typing import Any, Dict
 import logging
+import asyncio
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +17,45 @@ class KafkaService:
         self.consumer = None
         self.topic = settings.KAFKA_MESSAGES_TOPIC
 
+    async def create_topic(self, topic_name: str, num_partitions: int = 1, replication_factor: int = 1) -> None:
+        """
+        Create a Kafka topic with specified number of partitions
+        """
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(None, self._create_topic_sync,
+                                       topic_name, num_partitions, replication_factor)
+        except Exception as e:
+            logger.error(f"Error creating topic {topic_name}: {e}")
+            raise
+
+    def _create_topic_sync(self, topic_name: str, num_partitions: int, replication_factor: int) -> None:
+        """
+        Synchronous implementation of topic creation to be run in executor
+        """
+        try:
+            admin_client = KafkaAdminClient(
+                bootstrap_servers=self.settings.KAFKA_BOOTSTRAP_SERVERS,
+                client_id='admin'
+            )
+
+            topic_list = [
+                NewTopic(
+                    name=topic_name,
+                    num_partitions=num_partitions,
+                    replication_factor=replication_factor
+                )
+            ]
+
+            admin_client.create_topics(new_topics=topic_list, validate_only=False)
+            logger.info(f"Topic {topic_name} created with {num_partitions} partitions")
+            admin_client.close()
+        except TopicAlreadyExistsError:
+            logger.info(f"Topic {topic_name} already exists")
+        except Exception as e:
+            logger.error(f"Error in _create_topic_sync: {e}")
+            raise
+
     async def start_producer(self) -> None:
         if not self.producer:
             self.producer = AIOKafkaProducer(
@@ -24,6 +66,11 @@ class KafkaService:
             )
             await self.producer.start()
             logger.info("Kafka producer started")
+
+            await self.create_topic(
+                self.settings.KAFKA_MESSAGES_TOPIC,
+                num_partitions=self.settings.KAFKA_TOPIC_PARTITIONS,
+            )
 
     async def stop_producer(self) -> None:
         if self.producer:

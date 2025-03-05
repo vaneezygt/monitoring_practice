@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     KAFKA_INTERNAL_PORT: str
     ZOOKEEPER_PORT: str
     KAFKA_MESSAGES_TOPIC: str = "messages"
+    KAFKA_TOPIC_PARTITIONS: int = 3
 
     @property
     def KAFKA_BOOTSTRAP_SERVERS(self) -> List[str]:
