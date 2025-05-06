@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     def KAFKA_BOOTSTRAP_SERVERS(self) -> List[str]:
         return [f"{self.KAFKA_HOST}:{self.KAFKA_INTERNAL_PORT}"]
 
+    GF_SECURITY_ADMIN_USER: str
+    GF_SECURITY_ADMIN_PASSWORD: str
     # JWT settings
     SECRET_KEY: str = "your-secret-key"
     ALGORITHM: str = "HS256"
